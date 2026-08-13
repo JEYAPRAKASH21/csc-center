@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bill } from '../types';
 import { useApp } from '../context/AppContext';
-import { Printer, X, Share2, CheckCircle2, Image as ImageIcon, Send } from 'lucide-react';
+import { Printer, X, Share2, CheckCircle2, Image as ImageIcon, Send, Download, Loader2 } from 'lucide-react';
 import QRCode from 'qrcode';
+import html2canvas from 'html2canvas';
 
 interface ThermalReceiptModalProps {
   bill: Bill;
@@ -14,6 +15,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({ bill, 
   const [viewFormat, setViewFormat] = useState<'thermal' | 'a4'>('thermal');
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [showWhatsAppPrompt, setShowWhatsAppPrompt] = useState<boolean>(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
   const [whatsappPhone, setWhatsappPhone] = useState<string>(
     bill.customerPhone !== 'N/A' ? bill.customerPhone : ''
   );
@@ -36,14 +38,102 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({ bill, 
     setShowWhatsAppPrompt(true);
   };
 
-  // Generate downloadable bill image and open WhatsApp
-  const handleSendBillImageWhatsApp = () => {
-    const cleanPhone = whatsappPhone.replace(/[^0-9]/g, '');
-    const text = `*${settings.centerName}*%0ABill No: ${bill.billNumber}%0ADate: ${new Date(bill.date).toLocaleString('en-IN')}%0ACustomer: ${bill.customerName}%0ATotal Amount: ₹${bill.totalAmount}%0APayment Mode: ${bill.paymentMethod.toUpperCase()}%0AThank you for visiting!`;
-    
-    // Open WhatsApp directly
-    window.open(`https://wa.me/${cleanPhone ? '91' + cleanPhone : ''}?text=${text}`, '_blank');
-    onClose();
+  // Download receipt as PNG image file
+  const handleDownloadBillImage = async () => {
+    if (!receiptRef.current) return;
+    setIsGeneratingImage(true);
+
+    try {
+      const canvas = await html2canvas(receiptRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+      });
+
+      const fileName = `CSC_Bill_${bill.billNumber}.png`;
+      const link = document.createElement('a');
+      link.download = fileName;
+      link.href = canvas.toDataURL('image/png');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('Failed to download bill image:', err);
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  // Generate downloadable bill PNG image & share to WhatsApp
+  const handleSendBillImageWhatsApp = async () => {
+    if (!receiptRef.current) return;
+    setIsGeneratingImage(true);
+
+    try {
+      const canvas = await html2canvas(receiptRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+      });
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          setIsGeneratingImage(false);
+          return;
+        }
+
+        const fileName = `CSC_Bill_${bill.billNumber}.png`;
+        const file = new File([blob], fileName, { type: 'image/png' });
+        const cleanPhone = whatsappPhone.replace(/[^0-9]/g, '');
+        const waNumber = cleanPhone ? (cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone) : '';
+
+        // Mobile Web Share API (native WhatsApp image share)
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: `${settings.centerName} Bill - ${bill.billNumber}`,
+              text: `Receipt from ${settings.centerName} for ₹${bill.totalAmount}.`,
+            });
+            setIsGeneratingImage(false);
+            onClose();
+            return;
+          } catch (shareErr) {
+            console.log('Native share skipped, using download & copy fallback');
+          }
+        }
+
+        // Copy Image to Clipboard
+        try {
+          if (navigator.clipboard && window.ClipboardItem) {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ]);
+          }
+        } catch (clipErr) {
+          console.log('Clipboard image copy error:', clipErr);
+        }
+
+        // Download PNG Image
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Open WhatsApp
+        const waText = encodeURIComponent(`Bill Receipt for ₹${bill.totalAmount} (Bill #${bill.billNumber}) from ${settings.centerName}. (Bill image copied to clipboard & downloaded!)`);
+        const waUrl = waNumber ? `https://wa.me/${waNumber}?text=${waText}` : `https://wa.me/?text=${waText}`;
+        
+        window.open(waUrl, '_blank');
+        setIsGeneratingImage(false);
+        onClose();
+      }, 'image/png');
+    } catch (err) {
+      console.error('Failed to capture receipt image:', err);
+      setIsGeneratingImage(false);
+    }
   };
 
   const formattedDate = new Date(bill.date).toLocaleString('en-IN', {
@@ -55,13 +145,13 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({ bill, 
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
       <div className="bg-[#121827] border border-slate-700/80 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
         {/* Header Controls */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-[#0d1322]">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-slate-800 bg-[#0d1322]">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-white text-base">Receipt Generated</h3>
+              <h3 className="font-bold text-white text-sm sm:text-base">Receipt Generated</h3>
               <p className="text-xs text-slate-400 font-mono">Bill No: {bill.billNumber}</p>
             </div>
           </div>
@@ -71,19 +161,19 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({ bill, 
             <div className="flex bg-[#151c2e] p-1 rounded-xl text-xs font-semibold border border-slate-800">
               <button
                 onClick={() => setViewFormat('thermal')}
-                className={`px-3 py-1 rounded-lg transition ${
+                className={`px-2.5 py-1 rounded-lg transition ${
                   viewFormat === 'thermal' ? 'bg-csc-600 text-white shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                POS Thermal (3")
+                Thermal (3")
               </button>
               <button
                 onClick={() => setViewFormat('a4')}
-                className={`px-3 py-1 rounded-lg transition ${
+                className={`px-2.5 py-1 rounded-lg transition ${
                   viewFormat === 'a4' ? 'bg-csc-600 text-white shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                A4 Tax Invoice
+                A4 Invoice
               </button>
             </div>
 
@@ -248,24 +338,36 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({ bill, 
         </div>
 
         {/* Modal Action Buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-800 bg-[#0d1322]">
-          <button
-            onClick={() => setShowWhatsAppPrompt(true)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30 transition"
-          >
-            <Share2 className="w-4 h-4" /> Share Bill to WhatsApp
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-t border-slate-800 bg-[#0d1322]">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowWhatsAppPrompt(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30 transition active:scale-95"
+            >
+              <ImageIcon className="w-4 h-4" /> Share Bill Image to WhatsApp
+            </button>
+
+            <button
+              onClick={handleDownloadBillImage}
+              disabled={isGeneratingImage}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition active:scale-95"
+              title="Download Receipt Image (PNG)"
+            >
+              {isGeneratingImage ? <Loader2 className="w-4 h-4 animate-spin text-amber-400" /> : <Download className="w-4 h-4 text-amber-400" />}
+              <span className="hidden sm:inline">Save Image</span>
+            </button>
+          </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={handleDoneClick}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 transition"
+              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 transition active:scale-95"
             >
               Done
             </button>
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-csc-600 to-blue-600 hover:from-csc-500 hover:to-blue-500 text-white shadow-lg transition"
+              className="flex items-center gap-2 px-4 sm:px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-csc-600 to-blue-600 hover:from-csc-500 hover:to-blue-500 text-white shadow-lg transition active:scale-95"
             >
               <Printer className="w-4 h-4" /> Print Receipt
             </button>
@@ -281,12 +383,14 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({ bill, 
               <Send className="w-6 h-6" />
             </div>
 
-            <h3 className="font-bold text-white text-base">Send Bill to WhatsApp?</h3>
-            <p className="text-xs text-slate-400">Enter WhatsApp number to send generated invoice details directly to customer:</p>
+            <h3 className="font-bold text-white text-base">Send Bill Image to WhatsApp</h3>
+            <p className="text-xs text-slate-400">
+              Captures exact bill image receipt & opens WhatsApp:
+            </p>
 
             <input
               type="text"
-              placeholder="e.g. 9876543210"
+              placeholder="WhatsApp Number (e.g. 9876543210)"
               value={whatsappPhone}
               onChange={(e) => setWhatsappPhone(e.target.value)}
               className="w-full bg-[#0b0f19] border border-slate-800 text-white font-mono text-xs rounded-xl p-3 outline-none text-center"
@@ -301,10 +405,11 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({ bill, 
               </button>
               <button
                 onClick={handleSendBillImageWhatsApp}
-                className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5"
+                disabled={isGeneratingImage}
+                className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 active:scale-95"
               >
-                <Send className="w-3.5 h-3.5" />
-                <span>Send WhatsApp</span>
+                {isGeneratingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                <span>Send WhatsApp Image</span>
               </button>
             </div>
           </div>
