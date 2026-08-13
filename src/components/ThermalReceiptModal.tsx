@@ -59,58 +59,82 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({ bill, 
       document.body.removeChild(link);
     } catch (err) {
       console.error('Failed to download bill image:', err);
-    } finally {
+    } fontally: {
       setIsGeneratingImage(false);
     }
   };
 
-  // Directly redirect to WhatsApp for the given number + download/copy bill image
+  // Generate exact PNG image of receipt and share image format to WhatsApp
   const handleSendBillImageWhatsApp = async () => {
-    const cleanPhone = whatsappPhone.replace(/[^0-9]/g, '');
-    const waNumber = cleanPhone ? (cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone) : '';
+    if (!receiptRef.current) return;
+    setIsGeneratingImage(true);
 
-    const billSummaryText = `*${settings.centerName}*%0ABill No: ${bill.billNumber}%0ADate: ${new Date(bill.date).toLocaleString('en-IN')}%0ACustomer: ${encodeURIComponent(bill.customerName)}%0ATotal Amount: ₹${bill.totalAmount}%0APayment Mode: ${bill.paymentMethod.toUpperCase()}%0AThank you!`;
+    try {
+      const canvas = await html2canvas(receiptRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+      });
 
-    const waUrl = waNumber
-      ? `https://api.whatsapp.com/send?phone=${waNumber}&text=${billSummaryText}`
-      : `https://api.whatsapp.com/send?text=${billSummaryText}`;
-
-    // 1. Direct Instant Redirect to WhatsApp (synchronous in click event)
-    window.open(waUrl, '_blank');
-
-    // 2. Generate and download/copy high-res PNG image
-    if (receiptRef.current) {
-      try {
-        const canvas = await html2canvas(receiptRef.current, {
-          scale: 2,
-          backgroundColor: '#ffffff',
-          useCORS: true,
-        });
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          setIsGeneratingImage(false);
+          return;
+        }
 
         const fileName = `CSC_Bill_${bill.billNumber}.png`;
+        const file = new File([blob], fileName, { type: 'image/png' });
+        const cleanPhone = whatsappPhone.replace(/[^0-9]/g, '');
+        const waNumber = cleanPhone ? (cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone) : '';
 
-        // Copy image to clipboard if supported
-        canvas.toBlob(async (blob) => {
-          if (blob && navigator.clipboard && window.ClipboardItem) {
-            try {
-              await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-            } catch (e) {}
+        // 1. Mobile Web Share API: Attaches actual IMAGE format file directly into WhatsApp
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: `${settings.centerName} Bill Image - ${bill.billNumber}`,
+              text: `Receipt from ${settings.centerName} for ₹${bill.totalAmount}`,
+            });
+            setIsGeneratingImage(false);
+            onClose();
+            return;
+          } catch (shareErr) {
+            console.log('Native file share skipped or canceled, proceeding with copy & open fallback');
           }
-        }, 'image/png');
+        }
 
-        // Trigger PNG Download
+        // 2. Copy PNG image to clipboard for instant Paste (Cmd+V / Ctrl+V)
+        try {
+          if (navigator.clipboard && window.ClipboardItem) {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ]);
+          }
+        } catch (clipErr) {
+          console.log('Clipboard image copy error:', clipErr);
+        }
+
+        // 3. Trigger PNG image file download
         const link = document.createElement('a');
         link.download = fileName;
         link.href = canvas.toDataURL('image/png');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-      } catch (err) {
-        console.error('Image capture error:', err);
-      }
-    }
 
-    onClose();
+        // 4. Open WhatsApp directly to target phone number
+        const waUrl = waNumber ? `https://api.whatsapp.com/send?phone=${waNumber}` : `https://api.whatsapp.com/send`;
+        window.open(waUrl, '_blank');
+
+        alert(`Bill PNG Image saved & copied to clipboard!\n\nSimply press Ctrl+V (or Cmd+V) in the WhatsApp chat window to send the bill picture directly!`);
+
+        setIsGeneratingImage(false);
+        onClose();
+      }, 'image/png');
+    } catch (err) {
+      console.error('Image capture error:', err);
+      setIsGeneratingImage(false);
+    }
   };
 
   const formattedDate = new Date(bill.date).toLocaleString('en-IN', {
@@ -321,7 +345,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({ bill, 
               onClick={() => setShowWhatsAppPrompt(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30 transition active:scale-95"
             >
-              <Send className="w-4 h-4 text-emerald-400" /> Direct Send WhatsApp
+              <ImageIcon className="w-4 h-4 text-emerald-400" /> Send Bill Image to WhatsApp
             </button>
 
             <button
@@ -360,9 +384,9 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({ bill, 
               <Send className="w-6 h-6" />
             </div>
 
-            <h3 className="font-bold text-white text-base">Direct Send to WhatsApp</h3>
+            <h3 className="font-bold text-white text-base">Send Bill Image Format</h3>
             <p className="text-xs text-slate-400">
-              Directly opens WhatsApp chat with the customer's phone number:
+              Generates PNG bill image & sends image format via WhatsApp:
             </p>
 
             <input
@@ -383,10 +407,11 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({ bill, 
               </button>
               <button
                 onClick={handleSendBillImageWhatsApp}
+                disabled={isGeneratingImage}
                 className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 active:scale-95"
               >
-                <Send className="w-3.5 h-3.5" />
-                <span>Open WhatsApp Now</span>
+                {isGeneratingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                <span>Send WhatsApp Image</span>
               </button>
             </div>
           </div>
