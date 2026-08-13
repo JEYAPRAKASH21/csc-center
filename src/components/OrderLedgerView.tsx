@@ -162,19 +162,19 @@ export const OrderLedgerView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5 h-full overflow-y-auto pr-1">
+    <div className="space-y-4 h-full overflow-y-auto pr-0.5">
       {/* HEADER & FILTER RIBBON */}
-      <div className="bg-[#121827] border border-slate-800 p-5 rounded-2xl space-y-4 shadow-xl">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <History className="w-5 h-5 text-amber-400" /> Payment History & Order Ledger
+      <div className="bg-[#121827] border border-slate-800 p-3.5 sm:p-5 rounded-2xl space-y-3.5 shadow-xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-800">
+          <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+            <History className="w-4.5 h-4.5 text-amber-400" /> Payment History & Order Ledger
           </h2>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             {/* Export CSV Button */}
             <button
               onClick={exportCSVReport}
-              className="flex items-center gap-2 px-3.5 py-1.5 bg-[#1b2336] hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-xs rounded-xl transition shadow-sm active:scale-95"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1b2336] hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-xs rounded-xl transition shadow-sm active:scale-95"
               title="Download payment history as CSV file"
             >
               <Download className="w-3.5 h-3.5" /> Export CSV
@@ -184,22 +184,22 @@ export const OrderLedgerView: React.FC = () => {
             {bills.length > 0 && (
               <button
                 onClick={openDeleteAllModal}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold transition active:scale-95"
+                className="flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold transition active:scale-95"
               >
-                <Trash2 className="w-3.5 h-3.5" /> Delete All History
+                <Trash2 className="w-3.5 h-3.5" /> Clear History
               </button>
             )}
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-          {/* Time View Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-            <span className="text-xs text-slate-400 font-medium mr-1">View Filter:</span>
+        <div className="flex flex-col gap-3">
+          {/* Time View Filter Pills - Horizontal Scroll on Mobile */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+            <span className="text-xs text-slate-400 font-medium shrink-0">Filter:</span>
 
             <button
               onClick={() => setViewFilter('all')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition shrink-0 ${
                 viewFilter === 'all'
                   ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
                   : 'bg-[#0b0f19] border border-slate-800 text-slate-400 hover:text-white'
@@ -210,45 +210,45 @@ export const OrderLedgerView: React.FC = () => {
 
             <button
               onClick={() => setViewFilter('daily')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition shrink-0 ${
                 viewFilter === 'daily'
                   ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
                   : 'bg-[#0b0f19] border border-slate-800 text-slate-400 hover:text-white'
               }`}
             >
-              Daily (Today: ₹{todaySum})
+              Daily (₹{todaySum})
             </button>
 
             <button
               onClick={() => setViewFilter('monthly')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition shrink-0 ${
                 viewFilter === 'monthly'
                   ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
                   : 'bg-[#0b0f19] border border-slate-800 text-slate-400 hover:text-white'
               }`}
             >
-              Monthly (This Month: ₹{monthSum})
+              Monthly (₹{monthSum})
             </button>
 
             <button
               onClick={() => setViewFilter('yearly')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition shrink-0 ${
                 viewFilter === 'yearly'
                   ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
                   : 'bg-[#0b0f19] border border-slate-800 text-slate-400 hover:text-white'
               }`}
             >
-              Yearly (This Year: ₹{yearSum})
+              Yearly (₹{yearSum})
             </button>
           </div>
 
           {/* Right Controls: Search & Payment Dropdown */}
-          <div className="flex flex-col sm:flex-row items-center gap-2 w-full lg:w-auto">
-            <div className="relative w-full sm:w-60">
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
+            <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search Bill ID, Phone..."
+                placeholder="Search Bill ID, Customer Name, Phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-[#0b0f19] border border-slate-800 text-slate-100 text-xs rounded-xl pl-9 pr-3 py-2 outline-none font-medium"
@@ -258,7 +258,7 @@ export const OrderLedgerView: React.FC = () => {
             <select
               value={paymentFilter}
               onChange={(e) => setPaymentFilter(e.target.value)}
-              className="w-full sm:w-auto bg-[#0b0f19] border border-slate-800 text-slate-200 text-xs rounded-xl px-3 py-2 outline-none font-semibold"
+              className="w-full sm:w-48 bg-[#0b0f19] border border-slate-800 text-slate-200 text-xs rounded-xl px-3 py-2 outline-none font-semibold shrink-0"
             >
               <option value="all">All Payments</option>
               <option value="cash">Cash Only</option>
@@ -269,12 +269,12 @@ export const OrderLedgerView: React.FC = () => {
         </div>
       </div>
 
-      {/* DATA TABLE & EMPTY STATE */}
-      <div className="bg-[#121827] border border-slate-800 rounded-2xl overflow-hidden shadow-xl min-h-[380px]">
+      {/* DATA CONTAINER: MOBILE CARDS (< md) vs DESKTOP TABLE (>= md) */}
+      <div className="bg-[#121827] border border-slate-800 rounded-2xl overflow-hidden shadow-xl min-h-[350px]">
         {filteredBills.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-80 text-center py-16 text-slate-500">
-            <div className="w-14 h-14 rounded-full bg-[#0b0f19] border border-slate-800 flex items-center justify-center text-slate-500 mb-3">
-              <RotateCcw className="w-6 h-6" />
+          <div className="flex flex-col items-center justify-center h-80 text-center py-16 text-slate-500 p-4">
+            <div className="w-12 h-12 rounded-full bg-[#0b0f19] border border-slate-800 flex items-center justify-center text-slate-500 mb-3">
+              <RotateCcw className="w-5 h-5" />
             </div>
             <h4 className="text-sm font-bold text-slate-300">No payment records found</h4>
             <p className="text-xs text-slate-500 mt-1 max-w-xs">
@@ -282,96 +282,179 @@ export const OrderLedgerView: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-[#0b0f19] text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-800">
-                  <th className="p-4">BILL ID</th>
-                  <th className="p-4">DATE & TIME</th>
-                  <th className="p-4">CUSTOMER / CONTACT</th>
-                  <th className="p-4">ITEMS SUMMARY</th>
-                  <th className="p-4">PAYMENT MODE</th>
-                  <th className="p-4 text-right">TOTAL AMOUNT</th>
-                  <th className="p-4 text-right">ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 font-mono">
-                {filteredBills.map((b) => (
-                  <tr key={b.id} className="hover:bg-slate-800/40 transition">
-                    <td className="p-4 font-bold text-csc-400">{b.billNumber}</td>
-                    <td className="p-4 text-slate-400 text-[11px]">
-                      {new Date(b.date).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
-                    </td>
-                    <td className="p-4 font-sans font-semibold text-slate-200">
-                      <div>{b.customerName}</div>
-                      {b.customerPhone !== 'N/A' && <span className="text-[10px] text-slate-500 font-mono">{b.customerPhone}</span>}
-                    </td>
-                    <td className="p-4 text-slate-300 font-sans">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-white text-xs">{b.items.length} item(s)</span>
-                        <button
-                          onClick={() => setViewingItemsBill(b)}
-                          className="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/30 rounded text-[10px] font-extrabold transition inline-flex items-center gap-1"
-                        >
-                          <Eye className="w-3 h-3" /> View All Items
-                        </button>
-                      </div>
-                      <span className="text-[10px] text-slate-500 truncate max-w-[180px] block mt-0.5">
+          <>
+            {/* 1. MOBILE CARDS VIEW (< md) */}
+            <div className="md:hidden p-3 space-y-3">
+              {filteredBills.map((b) => (
+                <div
+                  key={b.id}
+                  className="bg-[#0b0f19] border border-slate-800 rounded-xl p-3.5 space-y-3 shadow-md"
+                >
+                  {/* Card Top Banner */}
+                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                    <div>
+                      <span className="font-mono font-extrabold text-csc-400 text-xs block">{b.billNumber}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {new Date(b.date).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                      </span>
+                    </div>
+
+                    <span className={`uppercase font-bold text-[10px] px-2 py-0.5 rounded border ${
+                      b.paymentMethod === 'upi' ? 'bg-csc-600/20 text-csc-300 border-csc-500/30' :
+                      b.paymentMethod === 'cash' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                      'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                    }`}>
+                      {b.paymentMethod}
+                    </span>
+                  </div>
+
+                  {/* Customer Info & Amount */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-slate-100 text-xs">{b.customerName}</p>
+                      {b.customerPhone !== 'N/A' && (
+                        <p className="text-[11px] text-slate-400 font-mono mt-0.5">{b.customerPhone}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-base font-extrabold text-emerald-400 font-mono">₹{b.totalAmount}</p>
+                    </div>
+                  </div>
+
+                  {/* Items Summary & View Button */}
+                  <div className="bg-[#121827] p-2.5 rounded-lg border border-slate-800 flex items-center justify-between text-xs">
+                    <div className="truncate pr-2">
+                      <span className="font-bold text-white text-[11px]">{b.items.length} item(s)</span>
+                      <span className="text-[10px] text-slate-400 truncate block">
                         {b.items.map((i) => i.name).join(', ')}
                       </span>
-                    </td>
-                    <td className="p-4 font-sans">
-                      <span className={`uppercase font-bold text-[10px] px-2 py-0.5 rounded border ${
-                        b.paymentMethod === 'upi' ? 'bg-csc-600/20 text-csc-300 border-csc-500/30' :
-                        b.paymentMethod === 'cash' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
-                        'bg-rose-500/20 text-rose-300 border-rose-500/30'
-                      }`}>
-                        {b.paymentMethod}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right font-bold text-emerald-400 text-sm">
-                      ₹{b.totalAmount}
-                    </td>
-                    <td className="p-4 text-right space-x-1 font-sans">
-                      <button
-                        onClick={() => openEditModal(b)}
-                        className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-bold transition inline-flex items-center gap-1"
-                        title="Edit Bill Info"
-                      >
-                        <Edit className="w-3.5 h-3.5" /> Edit
-                      </button>
-                      <button
-                        onClick={() => setSelectedBill(b)}
-                        className="px-2.5 py-1 bg-csc-600/20 hover:bg-csc-600 text-csc-300 hover:text-white border border-csc-500/30 rounded-lg text-xs font-bold transition inline-flex items-center gap-1"
-                        title="Reprint Bill"
-                      >
-                        <Printer className="w-3.5 h-3.5" /> Print
-                      </button>
-                      <button
-                        onClick={() => openSingleDeleteModal(b)}
-                        className="px-2.5 py-1 bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/30 rounded-lg text-xs font-bold transition inline-flex items-center gap-1"
-                        title="Delete Bill"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" /> Delete
-                      </button>
-                    </td>
+                    </div>
+
+                    <button
+                      onClick={() => setViewingItemsBill(b)}
+                      className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/30 rounded text-[10px] font-extrabold transition shrink-0 flex items-center gap-1"
+                    >
+                      <Eye className="w-3 h-3" /> View Items
+                    </button>
+                  </div>
+
+                  {/* Card Action Buttons */}
+                  <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-800/80">
+                    <button
+                      onClick={() => openEditModal(b)}
+                      className="py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-lg transition flex items-center justify-center gap-1"
+                    >
+                      <Edit className="w-3.5 h-3.5" /> Edit
+                    </button>
+                    <button
+                      onClick={() => setSelectedBill(b)}
+                      className="py-1.5 bg-csc-600/20 hover:bg-csc-600 text-csc-300 hover:text-white border border-csc-500/30 font-bold text-xs rounded-lg transition flex items-center justify-center gap-1"
+                    >
+                      <Printer className="w-3.5 h-3.5" /> Print
+                    </button>
+                    <button
+                      onClick={() => openSingleDeleteModal(b)}
+                      className="py-1.5 bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/30 font-bold text-xs rounded-lg transition flex items-center justify-center gap-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 2. DESKTOP WIDE TABLE VIEW (>= md) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-[#0b0f19] text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-800">
+                    <th className="p-4">BILL ID</th>
+                    <th className="p-4">DATE & TIME</th>
+                    <th className="p-4">CUSTOMER / CONTACT</th>
+                    <th className="p-4">ITEMS SUMMARY</th>
+                    <th className="p-4">PAYMENT MODE</th>
+                    <th className="p-4 text-right">TOTAL AMOUNT</th>
+                    <th className="p-4 text-right">ACTIONS</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-mono">
+                  {filteredBills.map((b) => (
+                    <tr key={b.id} className="hover:bg-slate-800/40 transition">
+                      <td className="p-4 font-bold text-csc-400">{b.billNumber}</td>
+                      <td className="p-4 text-slate-400 text-[11px]">
+                        {new Date(b.date).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                      </td>
+                      <td className="p-4 font-sans font-semibold text-slate-200">
+                        <div>{b.customerName}</div>
+                        {b.customerPhone !== 'N/A' && <span className="text-[10px] text-slate-500 font-mono">{b.customerPhone}</span>}
+                      </td>
+                      <td className="p-4 text-slate-300 font-sans">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-xs">{b.items.length} item(s)</span>
+                          <button
+                            onClick={() => setViewingItemsBill(b)}
+                            className="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/30 rounded text-[10px] font-extrabold transition inline-flex items-center gap-1"
+                          >
+                            <Eye className="w-3 h-3" /> View All Items
+                          </button>
+                        </div>
+                        <span className="text-[10px] text-slate-500 truncate max-w-[180px] block mt-0.5">
+                          {b.items.map((i) => i.name).join(', ')}
+                        </span>
+                      </td>
+                      <td className="p-4 font-sans">
+                        <span className={`uppercase font-bold text-[10px] px-2 py-0.5 rounded border ${
+                          b.paymentMethod === 'upi' ? 'bg-csc-600/20 text-csc-300 border-csc-500/30' :
+                          b.paymentMethod === 'cash' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                          'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                        }`}>
+                          {b.paymentMethod}
+                        </span>
+                      </td>
+                      <td className="p-4 text-right font-bold text-emerald-400 text-sm">
+                        ₹{b.totalAmount}
+                      </td>
+                      <td className="p-4 text-right space-x-1 font-sans">
+                        <button
+                          onClick={() => openEditModal(b)}
+                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-bold transition inline-flex items-center gap-1"
+                          title="Edit Bill Info"
+                        >
+                          <Edit className="w-3.5 h-3.5" /> Edit
+                        </button>
+                        <button
+                          onClick={() => setSelectedBill(b)}
+                          className="px-2.5 py-1 bg-csc-600/20 hover:bg-csc-600 text-csc-300 hover:text-white border border-csc-500/30 rounded-lg text-xs font-bold transition inline-flex items-center gap-1"
+                          title="Reprint Bill"
+                        >
+                          <Printer className="w-3.5 h-3.5" /> Print
+                        </button>
+                        <button
+                          onClick={() => openSingleDeleteModal(b)}
+                          className="px-2.5 py-1 bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/30 rounded-lg text-xs font-bold transition inline-flex items-center gap-1"
+                          title="Delete Bill"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
       {/* VIEW ALL ITEMS DETAILS MODAL */}
       {viewingItemsBill && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#121827] border border-slate-700/80 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-[#121827] border border-slate-700/80 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden space-y-4 max-h-[90vh] flex flex-col">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0d1322]">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-800 bg-[#0d1322] shrink-0">
               <div>
-                <h3 className="font-bold text-white text-base flex items-center gap-2">
-                  <ShoppingBag className="w-5 h-5 text-amber-400" /> Bill Purchased Items Breakdown
+                <h3 className="font-bold text-white text-sm sm:text-base flex items-center gap-2">
+                  <ShoppingBag className="w-4.5 h-4.5 text-amber-400" /> Bill Purchased Items Breakdown
                 </h3>
                 <p className="text-xs text-csc-400 font-mono mt-0.5">
                   Bill ID: {viewingItemsBill.billNumber}
@@ -382,46 +465,46 @@ export const OrderLedgerView: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
               {/* Customer & Bill Summary Banner */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#0b0f19] p-3.5 rounded-xl border border-slate-800 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-[#0b0f19] p-3 rounded-xl border border-slate-800 text-xs">
                 <div>
                   <span className="text-slate-500 text-[10px] uppercase font-bold block">Customer</span>
-                  <span className="font-bold text-slate-100">{viewingItemsBill.customerName}</span>
+                  <span className="font-bold text-slate-100 truncate block">{viewingItemsBill.customerName}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 text-[10px] uppercase font-bold block">Mobile Phone</span>
-                  <span className="font-mono text-slate-300">{viewingItemsBill.customerPhone}</span>
+                  <span className="font-mono text-slate-300 truncate block">{viewingItemsBill.customerPhone}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 text-[10px] uppercase font-bold block">Date & Time</span>
-                  <span className="font-mono text-slate-300 text-[11px]">
+                  <span className="font-mono text-slate-300 text-[10px] sm:text-[11px] block">
                     {new Date(viewingItemsBill.date).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-500 text-[10px] uppercase font-bold block">Payment Mode</span>
-                  <span className="font-extrabold uppercase text-emerald-400 font-mono">{viewingItemsBill.paymentMethod}</span>
+                  <span className="font-extrabold uppercase text-emerald-400 font-mono block">{viewingItemsBill.paymentMethod}</span>
                 </div>
               </div>
 
               {/* Items Breakdown Table */}
-              <div className="bg-[#0b0f19] border border-slate-800 rounded-xl overflow-hidden">
+              <div className="bg-[#0b0f19] border border-slate-800 rounded-xl overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-[#151c2e] text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-800">
                     <tr>
-                      <th className="p-3">#</th>
-                      <th className="p-3">ITEM TITLE</th>
-                      <th className="p-3">UNIT PRICE</th>
-                      <th className="p-3 text-center">QTY</th>
-                      <th className="p-3 text-right">TOTAL PRICE</th>
+                      <th className="p-2.5">#</th>
+                      <th className="p-2.5">ITEM TITLE</th>
+                      <th className="p-2.5">UNIT PRICE</th>
+                      <th className="p-2.5 text-center">QTY</th>
+                      <th className="p-2.5 text-right">TOTAL PRICE</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80 font-mono">
                     {viewingItemsBill.items.map((item, index) => (
                       <tr key={item.id || index} className="hover:bg-slate-800/30">
-                        <td className="p-3 text-slate-500">{index + 1}</td>
-                        <td className="p-3 font-sans font-semibold text-slate-200">
+                        <td className="p-2.5 text-slate-500">{index + 1}</td>
+                        <td className="p-2.5 font-sans font-semibold text-slate-200">
                           {item.name}
                           {item.ackNumber && (
                             <span className="block text-[10px] text-amber-400 font-mono mt-0.5">
@@ -429,9 +512,9 @@ export const OrderLedgerView: React.FC = () => {
                             </span>
                           )}
                         </td>
-                        <td className="p-3 text-slate-400">₹{item.unitPrice}</td>
-                        <td className="p-3 text-center font-bold text-white">{item.quantity}</td>
-                        <td className="p-3 text-right font-bold text-emerald-400">₹{item.totalPrice}</td>
+                        <td className="p-2.5 text-slate-400">₹{item.unitPrice}</td>
+                        <td className="p-2.5 text-center font-bold text-white">{item.quantity}</td>
+                        <td className="p-2.5 text-right font-bold text-emerald-400">₹{item.totalPrice}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -439,33 +522,33 @@ export const OrderLedgerView: React.FC = () => {
               </div>
 
               {/* Total Summary Footer */}
-              <div className="bg-[#0b0f19] p-4 rounded-xl border border-slate-800 flex items-center justify-between font-mono">
+              <div className="bg-[#0b0f19] p-3.5 rounded-xl border border-slate-800 flex items-center justify-between font-mono">
                 <div className="text-xs font-sans text-slate-400">
-                  <span>Total Items Purchased: </span>
-                  <span className="font-bold text-white">{viewingItemsBill.items.length} item(s)</span>
+                  <span>Items: </span>
+                  <span className="font-bold text-white">{viewingItemsBill.items.length} unit(s)</span>
                 </div>
                 <div className="text-right">
                   <span className="text-xs text-slate-400 mr-2">Grand Total:</span>
-                  <span className="text-xl font-extrabold text-emerald-400">₹{viewingItemsBill.totalAmount}</span>
+                  <span className="text-lg sm:text-xl font-extrabold text-emerald-400">₹{viewingItemsBill.totalAmount}</span>
                 </div>
               </div>
 
               {/* Modal Actions */}
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="flex items-center justify-end gap-2.5 pt-2">
                 <button
                   onClick={() => {
                     setSelectedBill(viewingItemsBill);
                     setViewingItemsBill(null);
                   }}
-                  className="px-4 py-2 bg-csc-600/20 hover:bg-csc-600 text-csc-300 hover:text-white border border-csc-500/30 font-bold text-xs rounded-xl transition flex items-center gap-1.5"
+                  className="px-3.5 py-2 bg-csc-600/20 hover:bg-csc-600 text-csc-300 hover:text-white border border-csc-500/30 font-bold text-xs rounded-xl transition flex items-center gap-1.5"
                 >
-                  <Printer className="w-4 h-4" /> Reprint Thermal Receipt
+                  <Printer className="w-4 h-4" /> Thermal Receipt
                 </button>
                 <button
                   onClick={() => setViewingItemsBill(null)}
-                  className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition"
                 >
-                  Close Details
+                  Close
                 </button>
               </div>
             </div>
@@ -475,8 +558,8 @@ export const OrderLedgerView: React.FC = () => {
 
       {/* EDIT BILL MODAL */}
       {editingBill && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#121827] border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-[#121827] border border-slate-700 rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-base font-bold text-white">Edit Bill Details</h3>
               <button onClick={() => setEditingBill(null)} className="text-slate-400 hover:text-white">
@@ -486,14 +569,14 @@ export const OrderLedgerView: React.FC = () => {
 
             <p className="text-xs text-amber-400 font-mono">Bill ID: {editingBill.billNumber}</p>
 
-            <form onSubmit={handleSaveEditBill} className="space-y-4">
+            <form onSubmit={handleSaveEditBill} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-1">Customer Name</label>
                 <input
                   type="text"
                   value={editCustName}
                   onChange={(e) => setEditCustName(e.target.value)}
-                  className="w-full bg-[#0b0f19] border border-slate-800 text-slate-100 text-xs rounded-xl p-3 outline-none"
+                  className="w-full bg-[#0b0f19] border border-slate-800 text-slate-100 text-xs rounded-xl p-2.5 outline-none"
                 />
               </div>
 
@@ -503,7 +586,7 @@ export const OrderLedgerView: React.FC = () => {
                   type="text"
                   value={editCustPhone}
                   onChange={(e) => setEditCustPhone(e.target.value)}
-                  className="w-full bg-[#0b0f19] border border-slate-800 font-mono text-slate-100 text-xs rounded-xl p-3 outline-none"
+                  className="w-full bg-[#0b0f19] border border-slate-800 font-mono text-slate-100 text-xs rounded-xl p-2.5 outline-none"
                 />
               </div>
 
@@ -512,7 +595,7 @@ export const OrderLedgerView: React.FC = () => {
                 <select
                   value={editPayMethod}
                   onChange={(e) => setEditPayMethod(e.target.value as any)}
-                  className="w-full bg-[#0b0f19] border border-slate-800 text-slate-100 text-xs rounded-xl p-3 outline-none capitalize font-semibold"
+                  className="w-full bg-[#0b0f19] border border-slate-800 text-slate-100 text-xs rounded-xl p-2.5 outline-none capitalize font-semibold"
                 >
                   <option value="cash">Cash</option>
                   <option value="upi">UPI QR Code</option>
@@ -527,7 +610,7 @@ export const OrderLedgerView: React.FC = () => {
                   type="text"
                   value={editNotes}
                   onChange={(e) => setEditNotes(e.target.value)}
-                  className="w-full bg-[#0b0f19] border border-slate-800 text-slate-100 text-xs rounded-xl p-3 outline-none"
+                  className="w-full bg-[#0b0f19] border border-slate-800 text-slate-100 text-xs rounded-xl p-2.5 outline-none"
                 />
               </div>
 
@@ -553,14 +636,14 @@ export const OrderLedgerView: React.FC = () => {
 
       {/* ANIMATED TYPE-TO-CONFIRM DELETE MODAL */}
       {deleteModalTarget && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#121827] border border-rose-500/40 rounded-2xl w-full max-w-md p-6 text-center space-y-4 shadow-2xl animate-in zoom-in-95 fade-in duration-200">
-            <div className="w-14 h-14 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center mx-auto">
-              <AlertTriangle className="w-7 h-7" />
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-[#121827] border border-rose-500/40 rounded-2xl w-full max-w-md p-5 text-center space-y-4 shadow-2xl animate-in zoom-in-95 fade-in duration-200">
+            <div className="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
             </div>
 
             <div>
-              <h3 className="font-bold text-white text-base">
+              <h3 className="font-bold text-white text-sm sm:text-base">
                 {deleteModalTarget === 'single' ? `Delete ${targetBillToDelete?.billNumber}?` : 'Delete All Payment History?'}
               </h3>
               <p className="text-xs text-slate-400 mt-1">
@@ -575,21 +658,21 @@ export const OrderLedgerView: React.FC = () => {
               placeholder={deleteModalTarget === 'single' ? targetBillToDelete?.billNumber : 'DELETE ALL'}
               value={confirmInputText}
               onChange={(e) => setConfirmInputText(e.target.value)}
-              className="w-full bg-[#0b0f19] border border-slate-700 text-amber-400 font-mono font-bold text-center text-sm rounded-xl p-3 outline-none focus:border-rose-500 uppercase tracking-widest"
+              className="w-full bg-[#0b0f19] border border-slate-700 text-amber-400 font-mono font-bold text-center text-sm rounded-xl p-2.5 outline-none focus:border-rose-500 uppercase tracking-widest"
               autoFocus
             />
 
             <div className="flex items-center gap-2 pt-2">
               <button
                 onClick={closeDeleteModal}
-                className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition"
+                className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleExecuteDelete}
                 disabled={!isConfirmValid}
-                className={`flex-1 py-2.5 font-extrabold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 ${
+                className={`flex-1 py-2 font-extrabold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 ${
                   isConfirmValid
                     ? 'bg-rose-600 hover:bg-rose-500 text-white cursor-pointer'
                     : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
