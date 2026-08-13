@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Settings, Save, Download, Upload, RotateCcw, Printer, Shield, QrCode } from 'lucide-react';
+import { Settings, Save, Download, Upload, RotateCcw, Printer, Shield, QrCode, CheckCircle2, X, Smartphone, Laptop } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
   const { settings, updateSettings, resetAllData } = useApp();
   const [formData, setFormData] = useState(settings);
-  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+  const [showSavePopup, setShowSavePopup] = useState<boolean>(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateSettings(formData);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+    setShowSavePopup(true);
   };
 
   const exportJSONBackup = () => {
@@ -57,7 +56,7 @@ export const SettingsView: React.FC = () => {
   return (
     <div className="space-y-6 h-full overflow-y-auto pr-1 max-w-4xl">
       {/* Top Banner */}
-      <div className="flex items-center justify-between bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-900 border border-slate-800 p-4 rounded-2xl gap-3">
         <div>
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <Settings className="w-5 h-5 text-slate-400" /> Center & System Settings
@@ -67,11 +66,12 @@ export const SettingsView: React.FC = () => {
           </p>
         </div>
 
-        {saveSuccess && (
-          <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-xl">
-            Settings Saved!
-          </span>
-        )}
+        <button
+          onClick={handleSubmit}
+          className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg transition shrink-0 active:scale-95"
+        >
+          <Save className="w-4 h-4" /> Save System Settings
+        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -194,13 +194,34 @@ export const SettingsView: React.FC = () => {
           <div className="pt-3">
             <button
               type="submit"
-              className="flex items-center gap-2 px-6 py-2.5 bg-csc-600 hover:bg-csc-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition"
+              className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg transition active:scale-95"
             >
               <Save className="w-4 h-4" /> Save System Settings
             </button>
           </div>
         </div>
       </form>
+
+      {/* Sync Explanation Box: Why Mobile & Laptop Data are Saved Separately */}
+      <div className="bg-[#121827] border border-amber-500/30 p-5 rounded-2xl space-y-3">
+        <h3 className="text-sm font-bold text-amber-400 flex items-center gap-2">
+          <Smartphone className="w-4 h-4" /> Why Data Saved on Mobile is Stored Locally (Local Storage)
+        </h3>
+        <p className="text-xs text-slate-300 leading-relaxed">
+          The app operates 100% offline-first using <code className="text-amber-300 font-mono bg-[#0b0f19] px-1.5 py-0.5 rounded">localStorage</code> memory inside each device browser. This ensures your sales transactions stay private and accessible without needing expensive servers.
+        </p>
+
+        <div className="bg-[#0b0f19] p-3.5 rounded-xl border border-slate-800 text-xs space-y-2">
+          <p className="font-bold text-white flex items-center gap-1.5">
+            <Laptop className="w-4 h-4 text-emerald-400" /> How to Transfer & Sync Data Between Laptop & Mobile:
+          </p>
+          <ol className="list-decimal list-inside space-y-1 text-slate-300 text-[11px] pl-1">
+            <li>On the device with your latest data (Phone or Laptop), click <strong>Export Complete Backup (JSON)</strong> below.</li>
+            <li>Send or air-drop the downloaded JSON file to your other device.</li>
+            <li>On the target device, click <strong>Restore Backup (JSON)</strong> to instantly import all services, bills & settings!</li>
+          </ol>
+        </div>
+      </div>
 
       {/* Backup & Data Restore */}
       <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
@@ -211,24 +232,49 @@ export const SettingsView: React.FC = () => {
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={exportJSONBackup}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-csc-400 border border-slate-700 font-bold text-xs rounded-xl transition"
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-csc-400 border border-slate-700 font-bold text-xs rounded-xl transition active:scale-95"
           >
             <Download className="w-4 h-4" /> Export Complete Backup (JSON)
           </button>
 
-          <label className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 font-bold text-xs rounded-xl cursor-pointer transition">
+          <label className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 font-bold text-xs rounded-xl cursor-pointer transition active:scale-95">
             <Upload className="w-4 h-4" /> Restore Backup (JSON)
             <input type="file" accept=".json" onChange={importJSONBackup} className="hidden" />
           </label>
 
           <button
             onClick={resetAllData}
-            className="flex items-center gap-2 px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold text-xs rounded-xl transition"
+            className="flex items-center gap-2 px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold text-xs rounded-xl transition active:scale-95"
           >
             <RotateCcw className="w-4 h-4" /> Reset Initial Demo Data
           </button>
         </div>
       </div>
+
+      {/* SAVE SETTINGS POPUP MODAL */}
+      {showSavePopup && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#121827] border border-emerald-500/40 rounded-2xl w-full max-w-sm p-6 text-center space-y-4 shadow-2xl animate-in zoom-in-95 fade-in duration-200">
+            <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+
+            <div>
+              <h3 className="font-bold text-white text-base">System Settings Saved!</h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Your CSC center details, VLE profile, and payment settings have been saved successfully to your browser storage.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowSavePopup(false)}
+              className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg transition active:scale-95"
+            >
+              Done / OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
