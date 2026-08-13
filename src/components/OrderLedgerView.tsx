@@ -310,11 +310,15 @@ export const OrderLedgerView: React.FC = () => {
 
                   {/* Customer Info & Amount */}
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold text-slate-100 text-xs">{b.customerName}</p>
-                      {b.customerPhone !== 'N/A' && (
-                        <p className="text-[11px] text-slate-400 font-mono mt-0.5">{b.customerPhone}</p>
-                      )}
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-slate-100 text-xs flex items-center gap-1">
+                        <User className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <span>{b.customerName || 'Walk-in Customer'}</span>
+                      </p>
+                      <p className="text-[11px] text-csc-400 font-mono font-bold flex items-center gap-1">
+                        <Phone className="w-3 h-3 text-csc-400 shrink-0" />
+                        <span>{b.customerPhone && b.customerPhone !== 'N/A' ? b.customerPhone : 'No Mobile Added'}</span>
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="text-base font-extrabold text-emerald-400 font-mono">₹{b.totalAmount}</p>
@@ -385,8 +389,14 @@ export const OrderLedgerView: React.FC = () => {
                         {new Date(b.date).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
                       </td>
                       <td className="p-4 font-sans font-semibold text-slate-200">
-                        <div>{b.customerName}</div>
-                        {b.customerPhone !== 'N/A' && <span className="text-[10px] text-slate-500 font-mono">{b.customerPhone}</span>}
+                        <div className="flex items-center gap-1.5 text-slate-100">
+                          <User className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span className="font-bold text-xs">{b.customerName || 'Walk-in Customer'}</span>
+                        </div>
+                        <div className="text-[11px] text-csc-400 font-mono font-bold flex items-center gap-1.5 mt-0.5">
+                          <Phone className="w-3 h-3 text-csc-400 shrink-0" />
+                          <span>{b.customerPhone && b.customerPhone !== 'N/A' ? b.customerPhone : 'No Mobile Added'}</span>
+                        </div>
                       </td>
                       <td className="p-4 text-slate-300 font-sans">
                         <div className="flex items-center gap-2">
