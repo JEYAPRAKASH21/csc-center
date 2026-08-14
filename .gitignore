@@ -31,5 +31,7 @@ dist/
 # macOS files
 .DS_Store
 
-# Local Database
+# Local Database & User Accounts
 csc_database.json
+csc_accounts.json
+csc_user_data/

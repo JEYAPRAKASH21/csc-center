@@ -7,6 +7,7 @@ import { CatalogView } from './components/CatalogView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { OrderLedgerView } from './components/OrderLedgerView';
 import { SettingsView } from './components/SettingsView';
+import { AuthModal } from './components/AuthModal';
 import { ShoppingCart, Grid, BarChart3, Receipt, Settings } from 'lucide-react';
 
 const MainContent: React.FC<{ showAddModal: boolean; onCloseAddModal: () => void }> = ({
@@ -32,9 +33,13 @@ const MainContent: React.FC<{ showAddModal: boolean; onCloseAddModal: () => void
 };
 
 export function AppInner() {
-  const { activeTab, setActiveTab } = useApp();
+  const { currentUser, activeTab, setActiveTab } = useApp();
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+
+  if (!currentUser) {
+    return <AuthModal />;
+  }
 
   const handleOpenAddModal = () => {
     setActiveTab('catalog');

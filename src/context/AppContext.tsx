@@ -1,10 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { ServiceItem, Bill, ApplicationRecord, CustomerCredit, StoreSettings, CartItem } from '../types';
+import { ServiceItem, Bill, ApplicationRecord, CustomerCredit, StoreSettings, CartItem, User } from '../types';
 import { initialServices, initialSettings, initialApplications, initialKhata, initialBills } from '../data/initialData';
 
 export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
 
 interface AppContextType {
+  currentUser: User | null;
+  login: (email: string, password: string) => Promise<string | null>;
+  register: (userData: { email: string; password: string; vleName: string; centerName: string; cscId: string }) => Promise<string | null>;
+  logout: () => void;
+
   services: ServiceItem[];
   bills: Bill[];
   applications: ApplicationRecord[];
@@ -63,6 +68,16 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const SYNC_API_URL = '/api/sync';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Current logged in user state
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const saved = window.localStorage.getItem('csc_active_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   // Helper to read initial state from LocalStorage or Fallback
   const getInitialStorage = <T,>(key: string, fallback: T): T => {
     try {
@@ -73,25 +88,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const [services, setServices] = useState<ServiceItem[]>(() => getInitialStorage('csc_services', initialServices));
-  const [bills, setBills] = useState<Bill[]>(() => getInitialStorage('csc_bills', initialBills));
-  const [applications, setApplications] = useState<ApplicationRecord[]>(() => getInitialStorage('csc_applications', initialApplications));
-  const [khata, setKhata] = useState<CustomerCredit[]>(() => getInitialStorage('csc_khata', initialKhata));
-  const [settings, setSettings] = useState<StoreSettings>(() => getInitialStorage('csc_settings', initialSettings));
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced');
+  const userKey = currentUser ? `usr_${currentUser.id}` : 'default';
 
+  const [services, setServices] = useState<ServiceItem[]>(() => getInitialStorage(`csc_services_${userKey}`, initialServices));
+  const [bills, setBills] = useState<Bill[]>(() => getInitialStorage(`csc_bills_${userKey}`, initialBills));
+  const [applications, setApplications] = useState<ApplicationRecord[]>(() => getInitialStorage(`csc_apps_${userKey}`, initialApplications));
+  const [khata, setKhata] = useState<CustomerCredit[]>(() => getInitialStorage(`csc_khata_${userKey}`, initialKhata));
+  const [settings, setSettings] = useState<StoreSettings>(() => {
+    const stored = getInitialStorage(`csc_settings_${userKey}`, initialSettings);
+    if (currentUser) {
+      return {
+        ...stored,
+        centerName: currentUser.centerName || stored.centerName,
+        vleName: currentUser.vleName || stored.vleName,
+        cscId: currentUser.cscId || stored.cscId,
+      };
+    }
+    return stored;
+  });
+
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced');
   const [activeTab, setActiveTab] = useState<string>('pos');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discount, setDiscount] = useState<number>(0);
   const [discountType, setDiscountType] = useState<'flat' | 'percentage'>('flat');
 
-  // Tracking flags to prevent sync loop loops
+  // Tracking flags to prevent sync loops
   const lastUpdatedRef = useRef<number>(0);
   const isPullingRef = useRef<boolean>(false);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
 
   // Sync to local storage
   const saveToLocalStorage = useCallback((
+    uKey: string,
     newServices: ServiceItem[],
     newBills: Bill[],
     newApps: ApplicationRecord[],
@@ -99,11 +128,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     newSettings: StoreSettings
   ) => {
     try {
-      window.localStorage.setItem('csc_services', JSON.stringify(newServices));
-      window.localStorage.setItem('csc_bills', JSON.stringify(newBills));
-      window.localStorage.setItem('csc_applications', JSON.stringify(newApps));
-      window.localStorage.setItem('csc_khata', JSON.stringify(newKhata));
-      window.localStorage.setItem('csc_settings', JSON.stringify(newSettings));
+      window.localStorage.setItem(`csc_services_${uKey}`, JSON.stringify(newServices));
+      window.localStorage.setItem(`csc_bills_${uKey}`, JSON.stringify(newBills));
+      window.localStorage.setItem(`csc_apps_${uKey}`, JSON.stringify(newApps));
+      window.localStorage.setItem(`csc_khata_${uKey}`, JSON.stringify(newKhata));
+      window.localStorage.setItem(`csc_settings_${uKey}`, JSON.stringify(newSettings));
     } catch (e) {
       console.error('Failed to update localStorage', e);
     }
@@ -120,6 +149,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       setSyncStatus('syncing');
       const payload = {
+        userId: currentUser?.id || 'default',
         services: sServices,
         bills: sBills,
         applications: sApps,
@@ -138,9 +168,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         setSyncStatus('synced');
 
-        // Notify other tabs on the same computer
         if (broadcastChannelRef.current) {
-          broadcastChannelRef.current.postMessage({ type: 'CSC_STATE_UPDATED', timestamp: data.lastUpdated });
+          broadcastChannelRef.current.postMessage({
+            type: 'CSC_STATE_UPDATED',
+            userId: currentUser?.id || 'default',
+            timestamp: data.lastUpdated
+          });
         }
       } else {
         setSyncStatus('offline');
@@ -148,42 +181,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       setSyncStatus('offline');
     }
-  }, []);
+  }, [currentUser]);
 
-  // Pull data from server (/api/sync)
+  // Pull data from server (/api/sync?userId=...)
   const pullFromCloud = useCallback(async () => {
     try {
-      const res = await fetch(SYNC_API_URL, { method: 'GET' });
+      const uId = currentUser?.id || 'default';
+      const res = await fetch(`${SYNC_API_URL}?userId=${uId}`, { method: 'GET' });
       if (!res.ok) {
         setSyncStatus('offline');
         return;
       }
       const data = await res.json();
 
-      // First run: server database is empty, seed server with current local data
+      // First run for user: server database is empty, seed with initial defaults
       if (data.empty) {
         await pushToCloud(services, bills, applications, khata, settings);
         return;
       }
 
-      // Update local state if server has newer data
       if (data.lastUpdated && data.lastUpdated > lastUpdatedRef.current) {
         isPullingRef.current = true;
         lastUpdatedRef.current = data.lastUpdated;
 
-        if (data.services) setServices(data.services);
-        if (data.bills) setBills(data.bills);
-        if (data.applications) setApplications(data.applications);
-        if (data.khata) setKhata(data.khata);
-        if (data.settings) setSettings(data.settings);
+        const mergedServices = data.services || services;
+        const mergedBills = data.bills || bills;
+        const mergedApps = data.applications || applications;
+        const mergedKhata = data.khata || khata;
+        const mergedSettings = data.settings || settings;
 
-        saveToLocalStorage(
-          data.services || services,
-          data.bills || bills,
-          data.applications || applications,
-          data.khata || khata,
-          data.settings || settings
-        );
+        setServices(mergedServices);
+        setBills(mergedBills);
+        setApplications(mergedApps);
+        setKhata(mergedKhata);
+        setSettings(mergedSettings);
+
+        saveToLocalStorage(`usr_${uId}`, mergedServices, mergedBills, mergedApps, mergedKhata, mergedSettings);
 
         setSyncStatus('synced');
         setTimeout(() => {
@@ -193,25 +226,84 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       setSyncStatus('offline');
     }
-  }, [services, bills, applications, khata, settings, pushToCloud, saveToLocalStorage]);
+  }, [currentUser, services, bills, applications, khata, settings, pushToCloud, saveToLocalStorage]);
 
-  // Initial Sync & Polling setup
+  // Auth: Login
+  const login = async (email: string, password: string): Promise<string | null> => {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return data.error || 'Login failed';
+      }
+      const loggedUser: User = data.user;
+      setCurrentUser(loggedUser);
+      window.localStorage.setItem('csc_active_user', JSON.stringify(loggedUser));
+      lastUpdatedRef.current = 0; // Reset last updated to trigger fresh pull
+      return null;
+    } catch (e) {
+      return 'Network error connecting to server';
+    }
+  };
+
+  // Auth: Register
+  const register = async (userData: { email: string; password: string; vleName: string; centerName: string; cscId: string }): Promise<string | null> => {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return data.error || 'Registration failed';
+      }
+      const newLoggedUser: User = data.user;
+      setCurrentUser(newLoggedUser);
+      window.localStorage.setItem('csc_active_user', JSON.stringify(newLoggedUser));
+
+      // Update settings with newly registered credentials
+      const updatedSettings: StoreSettings = {
+        ...settings,
+        centerName: newLoggedUser.centerName,
+        vleName: newLoggedUser.vleName,
+        cscId: newLoggedUser.cscId
+      };
+      setSettings(updatedSettings);
+      lastUpdatedRef.current = 0;
+      await pushToCloud(initialServices, [], [], [], updatedSettings);
+      return null;
+    } catch (e) {
+      return 'Network error connecting to server';
+    }
+  };
+
+  // Auth: Logout
+  const logout = () => {
+    setCurrentUser(null);
+    window.localStorage.removeItem('csc_active_user');
+    setCart([]);
+    lastUpdatedRef.current = 0;
+  };
+
+  // Initial Sync & Polling setup when currentUser changes
   useEffect(() => {
-    // Setup BroadcastChannel for multi-tab sync
     if (typeof BroadcastChannel !== 'undefined') {
-      const channel = new BroadcastChannel('csc_center_channel');
+      const channel = new BroadcastChannel('csc_center_user_channel');
       broadcastChannelRef.current = channel;
       channel.onmessage = (event) => {
-        if (event.data?.type === 'CSC_STATE_UPDATED') {
+        if (event.data?.type === 'CSC_STATE_UPDATED' && event.data?.userId === (currentUser?.id || 'default')) {
           pullFromCloud();
         }
       };
     }
 
-    // Initial pull
     pullFromCloud();
 
-    // Poll server every 2 seconds to receive real-time updates from other systems/devices
     const interval = setInterval(() => {
       pullFromCloud();
     }, 2000);
@@ -228,7 +320,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         broadcastChannelRef.current.close();
       }
     };
-  }, [pullFromCloud]);
+  }, [currentUser, pullFromCloud]);
 
   // Helper wrapper for updating state & pushing to cloud
   const updateAndSync = useCallback((
@@ -244,12 +336,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setKhata(newKhata);
     setSettings(newSettings);
 
-    saveToLocalStorage(newServices, newBills, newApps, newKhata, newSettings);
+    const uKey = currentUser ? `usr_${currentUser.id}` : 'default';
+    saveToLocalStorage(uKey, newServices, newBills, newApps, newKhata, newSettings);
 
     if (!isPullingRef.current) {
       pushToCloud(newServices, newBills, newApps, newKhata, newSettings);
     }
-  }, [saveToLocalStorage, pushToCloud]);
+  }, [currentUser, saveToLocalStorage, pushToCloud]);
 
   // Cart operations
   const addToCart = (service: ServiceItem, quantity = 1, ackNumber?: string) => {
@@ -357,7 +450,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let updatedKhata = [...khata];
     let updatedServices = [...services];
 
-    // Update Khata if needed
     if (paymentMethod === 'credit' || pendingVal > 0) {
       const custName = customerName.trim() || 'Walk-in Customer';
       const custPhone = customerPhone.trim() || 'N/A';
@@ -403,7 +495,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // Deduct stationery stock
     cart.forEach((cartItem) => {
       if (cartItem.serviceId) {
         updatedServices = updatedServices.map((srv) =>
@@ -565,7 +656,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const resetAllData = () => {
-    if (window.confirm('Are you sure you want to reset all data across all connected devices?')) {
+    if (window.confirm('Are you sure you want to reset all data for this account?')) {
       updateAndSync(initialServices, initialBills, initialApplications, initialKhata, initialSettings);
       clearCart();
     }
@@ -574,6 +665,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider
       value={{
+        currentUser,
+        login,
+        register,
+        logout,
         services,
         bills,
         applications,

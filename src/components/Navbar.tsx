@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { Menu, Calendar, Sun, Moon, Store, X, Globe, RefreshCw } from 'lucide-react';
+import { Menu, Calendar, Sun, Moon, Store, X, Globe, RefreshCw, LogOut, User as UserIcon, ChevronDown } from 'lucide-react';
 
 interface NavbarProps {
   onToggleMobileMenu?: () => void;
@@ -8,10 +8,12 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, isMobileMenuOpen }) => {
-  const { settings, syncStatus, syncNow } = useApp();
+  const { settings, syncStatus, syncNow, currentUser, logout } = useApp();
   const [fullDateTime, setFullDateTime] = useState<string>('');
   const [shortTime, setShortTime] = useState<string>('');
   const [isDark, setIsDark] = useState<boolean>(true);
+  const [showUserDropdown, setShowUserDropdown] = useState<boolean>(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const updateTime = () => {
@@ -27,6 +29,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, isMobileMenu
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowUserDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const toggleTheme = () => {
@@ -56,9 +68,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, isMobileMenu
           </div>
           <div className="min-w-0 truncate">
             <h2 className="font-bold text-xs sm:text-base text-white leading-tight truncate">
-              {settings.centerName}
+              {settings.centerName || currentUser?.centerName || 'CSC Digital Express'}
             </h2>
-            <p className="text-[10px] text-slate-400 font-medium hidden sm:block">Billing Desk & Operations</p>
+            <p className="text-[10px] text-slate-400 font-medium hidden sm:block">
+              {currentUser?.vleName ? `${currentUser.vleName} • ` : ''}Billing Desk & Operations
+            </p>
           </div>
         </div>
       </div>
@@ -89,6 +103,41 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, isMobileMenu
           <span className="tracking-wide text-amber-300 text-[10px] sm:text-sm hidden sm:inline">{fullDateTime}</span>
           <span className="tracking-wide text-amber-300 text-[10px] sm:hidden">{shortTime}</span>
         </div>
+
+        {/* User Profile Badge & Logout Dropdown */}
+        {currentUser && (
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setShowUserDropdown(!showUserDropdown)}
+              className="flex items-center gap-2 bg-[#151c2e] hover:bg-[#1a233a] border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-200 transition shrink-0 active:scale-95 shadow-md"
+            >
+              <div className="w-6 h-6 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center font-bold text-[11px]">
+                {currentUser.vleName ? currentUser.vleName.charAt(0).toUpperCase() : 'U'}
+              </div>
+              <span className="hidden lg:inline text-xs font-semibold max-w-[120px] truncate">
+                {currentUser.vleName}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            {showUserDropdown && (
+              <div className="absolute right-0 mt-2 w-56 bg-[#0f172a] border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="p-2.5 border-b border-slate-800 mb-1">
+                  <p className="text-xs font-bold text-white truncate">{currentUser.centerName}</p>
+                  <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
+                  <p className="text-[10px] font-mono text-amber-400 font-bold mt-1">{currentUser.cscId}</p>
+                </div>
+
+                <button
+                  onClick={() => { setShowUserDropdown(false); logout(); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-rose-400 hover:bg-rose-500/10 rounded-xl text-xs font-bold transition text-left"
+                >
+                  <LogOut className="w-4 h-4" /> Switch Account / Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Theme Toggle */}
         <button

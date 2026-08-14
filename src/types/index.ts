@@ -102,3 +102,11 @@ export interface StoreSettings {
   gstEnabled: boolean;
   gstRate: number; // e.g., 18%
 }
+
+export interface User {
+  id: string;
+  email: string;
+  vleName: string;
+  centerName: string;
+  cscId: string;
+}
