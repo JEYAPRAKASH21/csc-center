@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Settings, Save, Download, Upload, RotateCcw, Printer, Shield, QrCode, CheckCircle2, X, Smartphone, Laptop } from 'lucide-react';
+import { Settings, Save, Download, Upload, RotateCcw, Printer, Shield, QrCode, CheckCircle2, X, Smartphone, Laptop, Globe, RefreshCw } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
-  const { settings, updateSettings, resetAllData } = useApp();
+  const { settings, updateSettings, resetAllData, syncStatus, syncNow } = useApp();
   const [formData, setFormData] = useState(settings);
   const [showSavePopup, setShowSavePopup] = useState<boolean>(false);
 
@@ -65,13 +65,6 @@ export const SettingsView: React.FC = () => {
             Configure CSC branding, VLE details, UPI payment QR settings, thermal printing layout, and backups.
           </p>
         </div>
-
-        <button
-          onClick={handleSubmit}
-          className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg transition shrink-0 active:scale-95"
-        >
-          <Save className="w-4 h-4" /> Save System Settings
-        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -202,24 +195,31 @@ export const SettingsView: React.FC = () => {
         </div>
       </form>
 
-      {/* Sync Explanation Box: Why Mobile & Laptop Data are Saved Separately */}
-      <div className="bg-[#121827] border border-amber-500/30 p-5 rounded-2xl space-y-3">
-        <h3 className="text-sm font-bold text-amber-400 flex items-center gap-2">
-          <Smartphone className="w-4 h-4" /> Why Data Saved on Mobile is Stored Locally (Local Storage)
-        </h3>
+      {/* Multi-Device Realtime Sync Box */}
+      <div className="bg-[#121827] border border-emerald-500/40 p-5 rounded-2xl space-y-3 shadow-lg">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h3 className="text-sm font-bold text-emerald-400 flex items-center gap-2">
+            <Globe className="w-4.5 h-4.5 text-emerald-400" /> Multi-Device Real-Time Sync Active
+          </h3>
+          <button
+            type="button"
+            onClick={() => syncNow()}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold rounded-xl transition active:scale-95"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} /> Force Sync Now
+          </button>
+        </div>
         <p className="text-xs text-slate-300 leading-relaxed">
-          The app operates 100% offline-first using <code className="text-amber-300 font-mono bg-[#0b0f19] px-1.5 py-0.5 rounded">localStorage</code> memory inside each device browser. This ensures your sales transactions stay private and accessible without needing expensive servers.
+          All settings, bills, application tracking, and khata records automatically sync in real-time across every device (laptops, mobile phones, tablets, or desktops) connected to this CSC Center.
         </p>
 
         <div className="bg-[#0b0f19] p-3.5 rounded-xl border border-slate-800 text-xs space-y-2">
           <p className="font-bold text-white flex items-center gap-1.5">
-            <Laptop className="w-4 h-4 text-emerald-400" /> How to Transfer & Sync Data Between Laptop & Mobile:
+            <Smartphone className="w-4 h-4 text-amber-400" /> Opening on Phone / Other Computers:
           </p>
-          <ol className="list-decimal list-inside space-y-1 text-slate-300 text-[11px] pl-1">
-            <li>On the device with your latest data (Phone or Laptop), click <strong>Export Complete Backup (JSON)</strong> below.</li>
-            <li>Send or air-drop the downloaded JSON file to your other device.</li>
-            <li>On the target device, click <strong>Restore Backup (JSON)</strong> to instantly import all services, bills & settings!</li>
-          </ol>
+          <p className="text-slate-300 text-[11px]">
+            Simply open the web link on any phone or laptop on your network. Any updates saved on one system will instantly appear across all connected devices within 1-2 seconds.
+          </p>
         </div>
       </div>
 

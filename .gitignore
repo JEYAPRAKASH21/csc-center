@@ -30,3 +30,6 @@ dist/
 
 # macOS files
 .DS_Store
+
+# Local Database
+csc_database.json

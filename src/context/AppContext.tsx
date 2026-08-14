@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { ServiceItem, Bill, ApplicationRecord, CustomerCredit, StoreSettings, CartItem } from '../types';
 import { initialServices, initialSettings, initialApplications, initialKhata, initialBills } from '../data/initialData';
+
+export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
 
 interface AppContextType {
   services: ServiceItem[];
@@ -11,6 +13,7 @@ interface AppContextType {
   cart: CartItem[];
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  syncStatus: SyncStatus;
 
   // Cart operations
   addToCart: (service: ServiceItem, quantity?: number, ackNumber?: string) => void;
@@ -49,49 +52,206 @@ interface AppContextType {
   recordKhataPayment: (customerId: string, amount: number, note: string) => void;
   addKhataDebit: (customerId: string, amount: number, description: string) => void;
 
-  // Settings
+  // Settings & Sync
   updateSettings: (newSettings: Partial<StoreSettings>) => void;
   resetAllData: () => void;
+  syncNow: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const SYNC_API_URL = '/api/sync';
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // LocalStorage Helper
-  const useLocalStorage = <T,>(key: string, initialValue: T): [T, (val: T | ((prev: T) => T)) => void] => {
-    const [storedValue, setStoredValue] = useState<T>(() => {
-      try {
-        const item = window.localStorage.getItem(key);
-        return item ? JSON.parse(item) : initialValue;
-      } catch (error) {
-        console.error(`Error reading localStorage key "${key}":`, error);
-        return initialValue;
-      }
-    });
-
-    useEffect(() => {
-      try {
-        window.localStorage.setItem(key, JSON.stringify(storedValue));
-      } catch (error) {
-        console.error(`Error setting localStorage key "${key}":`, error);
-      }
-    }, [key, storedValue]);
-
-    return [storedValue, setStoredValue];
+  // Helper to read initial state from LocalStorage or Fallback
+  const getInitialStorage = <T,>(key: string, fallback: T): T => {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : fallback;
+    } catch {
+      return fallback;
+    }
   };
 
-  const [services, setServices] = useLocalStorage<ServiceItem[]>('csc_services', initialServices);
-  const [bills, setBills] = useLocalStorage<Bill[]>('csc_bills', initialBills);
-  const [applications, setApplications] = useLocalStorage<ApplicationRecord[]>('csc_applications', initialApplications);
-  const [khata, setKhata] = useLocalStorage<CustomerCredit[]>('csc_khata', initialKhata);
-  const [settings, setSettings] = useLocalStorage<StoreSettings>('csc_settings', initialSettings);
+  const [services, setServices] = useState<ServiceItem[]>(() => getInitialStorage('csc_services', initialServices));
+  const [bills, setBills] = useState<Bill[]>(() => getInitialStorage('csc_bills', initialBills));
+  const [applications, setApplications] = useState<ApplicationRecord[]>(() => getInitialStorage('csc_applications', initialApplications));
+  const [khata, setKhata] = useState<CustomerCredit[]>(() => getInitialStorage('csc_khata', initialKhata));
+  const [settings, setSettings] = useState<StoreSettings>(() => getInitialStorage('csc_settings', initialSettings));
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced');
 
   const [activeTab, setActiveTab] = useState<string>('pos');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discount, setDiscount] = useState<number>(0);
   const [discountType, setDiscountType] = useState<'flat' | 'percentage'>('flat');
 
-  // Cart logic
+  // Tracking flags to prevent sync loop loops
+  const lastUpdatedRef = useRef<number>(0);
+  const isPullingRef = useRef<boolean>(false);
+  const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
+
+  // Sync to local storage
+  const saveToLocalStorage = useCallback((
+    newServices: ServiceItem[],
+    newBills: Bill[],
+    newApps: ApplicationRecord[],
+    newKhata: CustomerCredit[],
+    newSettings: StoreSettings
+  ) => {
+    try {
+      window.localStorage.setItem('csc_services', JSON.stringify(newServices));
+      window.localStorage.setItem('csc_bills', JSON.stringify(newBills));
+      window.localStorage.setItem('csc_applications', JSON.stringify(newApps));
+      window.localStorage.setItem('csc_khata', JSON.stringify(newKhata));
+      window.localStorage.setItem('csc_settings', JSON.stringify(newSettings));
+    } catch (e) {
+      console.error('Failed to update localStorage', e);
+    }
+  }, []);
+
+  // Push local data payload to server (/api/sync)
+  const pushToCloud = useCallback(async (
+    sServices: ServiceItem[],
+    sBills: Bill[],
+    sApps: ApplicationRecord[],
+    sKhata: CustomerCredit[],
+    sSettings: StoreSettings
+  ) => {
+    try {
+      setSyncStatus('syncing');
+      const payload = {
+        services: sServices,
+        bills: sBills,
+        applications: sApps,
+        khata: sKhata,
+        settings: sSettings
+      };
+      const res = await fetch(SYNC_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.lastUpdated) {
+          lastUpdatedRef.current = data.lastUpdated;
+        }
+        setSyncStatus('synced');
+
+        // Notify other tabs on the same computer
+        if (broadcastChannelRef.current) {
+          broadcastChannelRef.current.postMessage({ type: 'CSC_STATE_UPDATED', timestamp: data.lastUpdated });
+        }
+      } else {
+        setSyncStatus('offline');
+      }
+    } catch (e) {
+      setSyncStatus('offline');
+    }
+  }, []);
+
+  // Pull data from server (/api/sync)
+  const pullFromCloud = useCallback(async () => {
+    try {
+      const res = await fetch(SYNC_API_URL, { method: 'GET' });
+      if (!res.ok) {
+        setSyncStatus('offline');
+        return;
+      }
+      const data = await res.json();
+
+      // First run: server database is empty, seed server with current local data
+      if (data.empty) {
+        await pushToCloud(services, bills, applications, khata, settings);
+        return;
+      }
+
+      // Update local state if server has newer data
+      if (data.lastUpdated && data.lastUpdated > lastUpdatedRef.current) {
+        isPullingRef.current = true;
+        lastUpdatedRef.current = data.lastUpdated;
+
+        if (data.services) setServices(data.services);
+        if (data.bills) setBills(data.bills);
+        if (data.applications) setApplications(data.applications);
+        if (data.khata) setKhata(data.khata);
+        if (data.settings) setSettings(data.settings);
+
+        saveToLocalStorage(
+          data.services || services,
+          data.bills || bills,
+          data.applications || applications,
+          data.khata || khata,
+          data.settings || settings
+        );
+
+        setSyncStatus('synced');
+        setTimeout(() => {
+          isPullingRef.current = false;
+        }, 100);
+      }
+    } catch (e) {
+      setSyncStatus('offline');
+    }
+  }, [services, bills, applications, khata, settings, pushToCloud, saveToLocalStorage]);
+
+  // Initial Sync & Polling setup
+  useEffect(() => {
+    // Setup BroadcastChannel for multi-tab sync
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel('csc_center_channel');
+      broadcastChannelRef.current = channel;
+      channel.onmessage = (event) => {
+        if (event.data?.type === 'CSC_STATE_UPDATED') {
+          pullFromCloud();
+        }
+      };
+    }
+
+    // Initial pull
+    pullFromCloud();
+
+    // Poll server every 2 seconds to receive real-time updates from other systems/devices
+    const interval = setInterval(() => {
+      pullFromCloud();
+    }, 2000);
+
+    const handleFocus = () => pullFromCloud();
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('online', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('online', handleFocus);
+      if (broadcastChannelRef.current) {
+        broadcastChannelRef.current.close();
+      }
+    };
+  }, [pullFromCloud]);
+
+  // Helper wrapper for updating state & pushing to cloud
+  const updateAndSync = useCallback((
+    newServices: ServiceItem[],
+    newBills: Bill[],
+    newApps: ApplicationRecord[],
+    newKhata: CustomerCredit[],
+    newSettings: StoreSettings
+  ) => {
+    setServices(newServices);
+    setBills(newBills);
+    setApplications(newApps);
+    setKhata(newKhata);
+    setSettings(newSettings);
+
+    saveToLocalStorage(newServices, newBills, newApps, newKhata, newSettings);
+
+    if (!isPullingRef.current) {
+      pushToCloud(newServices, newBills, newApps, newKhata, newSettings);
+    }
+  }, [saveToLocalStorage, pushToCloud]);
+
+  // Cart operations
   const addToCart = (service: ServiceItem, quantity = 1, ackNumber?: string) => {
     setCart((prev) => {
       const existingIndex = prev.findIndex((item) => item.serviceId === service.id && item.ackNumber === ackNumber);
@@ -193,87 +353,84 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       notes,
     };
 
-    setBills((prev) => [newBill, ...prev]);
+    const updatedBills = [newBill, ...bills];
+    let updatedKhata = [...khata];
+    let updatedServices = [...services];
 
-    // If payment method is Credit or pending amount > 0, update Khata ledger!
+    // Update Khata if needed
     if (paymentMethod === 'credit' || pendingVal > 0) {
       const custName = customerName.trim() || 'Walk-in Customer';
       const custPhone = customerPhone.trim() || 'N/A';
 
-      setKhata((prevKhata) => {
-        const existingCust = prevKhata.find(
-          (c) => (custPhone !== 'N/A' && c.phone === custPhone) || c.name.toLowerCase() === custName.toLowerCase()
-        );
+      const existingCustIndex = updatedKhata.findIndex(
+        (c) => (custPhone !== 'N/A' && c.phone === custPhone) || c.name.toLowerCase() === custName.toLowerCase()
+      );
 
-        if (existingCust) {
-          return prevKhata.map((c) =>
-            c.id === existingCust.id
-              ? {
-                  ...c,
-                  totalOutstanding: c.totalOutstanding + pendingVal,
-                  history: [
-                    ...c.history,
-                    {
-                      id: `h-${Date.now()}`,
-                      date: new Date().toISOString(),
-                      type: 'debit',
-                      amount: pendingVal,
-                      description: `Bill ${nextBillNumber} (${cart.length} items)`,
-                      billId: newBill.id,
-                    },
-                  ],
-                }
-              : c
-          );
-        } else {
-          const newCust: CustomerCredit = {
-            id: `cust-${Date.now()}`,
-            name: custName,
-            phone: custPhone,
-            totalOutstanding: pendingVal,
-            history: [
-              {
-                id: `h-${Date.now()}`,
-                date: new Date().toISOString(),
-                type: 'debit',
-                amount: pendingVal,
-                description: `Bill ${nextBillNumber} (${cart.length} items)`,
-                billId: newBill.id,
-              },
-            ],
-          };
-          return [...prevKhata, newCust];
-        }
-      });
+      if (existingCustIndex > -1) {
+        const target = updatedKhata[existingCustIndex];
+        updatedKhata[existingCustIndex] = {
+          ...target,
+          totalOutstanding: target.totalOutstanding + pendingVal,
+          history: [
+            ...target.history,
+            {
+              id: `h-${Date.now()}`,
+              date: new Date().toISOString(),
+              type: 'debit',
+              amount: pendingVal,
+              description: `Bill ${nextBillNumber} (${cart.length} items)`,
+              billId: newBill.id,
+            },
+          ],
+        };
+      } else {
+        updatedKhata.push({
+          id: `cust-${Date.now()}`,
+          name: custName,
+          phone: custPhone,
+          totalOutstanding: pendingVal,
+          history: [
+            {
+              id: `h-${Date.now()}`,
+              date: new Date().toISOString(),
+              type: 'debit',
+              amount: pendingVal,
+              description: `Bill ${nextBillNumber} (${cart.length} items)`,
+              billId: newBill.id,
+            },
+          ],
+        });
+      }
     }
 
-    // Also deduct stock for stationery items
+    // Deduct stationery stock
     cart.forEach((cartItem) => {
       if (cartItem.serviceId) {
-        setServices((prevServices) =>
-          prevServices.map((srv) =>
-            srv.id === cartItem.serviceId && srv.stock !== undefined
-              ? { ...srv, stock: Math.max(0, srv.stock - cartItem.quantity) }
-              : srv
-          )
+        updatedServices = updatedServices.map((srv) =>
+          srv.id === cartItem.serviceId && srv.stock !== undefined
+            ? { ...srv, stock: Math.max(0, srv.stock - cartItem.quantity) }
+            : srv
         );
       }
     });
 
+    updateAndSync(updatedServices, updatedBills, applications, updatedKhata, settings);
     clearCart();
     return newBill;
   };
 
   const updateBill = (id: string, updatedFields: Partial<Bill>) => {
-    setBills((prev) => prev.map((b) => (b.id === id ? { ...b, ...updatedFields } : b)));
+    const updated = bills.map((b) => (b.id === id ? { ...b, ...updatedFields } : b));
+    updateAndSync(services, updated, applications, khata, settings);
   };
 
   const deleteBill = (billId: string) => {
-    setBills((prev) => prev.filter((b) => b.id !== billId));
+    const updated = bills.filter((b) => b.id !== billId);
+    updateAndSync(services, updated, applications, khata, settings);
   };
 
   const clearAllBills = () => {
-    setBills([]);
+    updateAndSync(services, [], applications, khata, settings);
   };
 
   // Service Management
@@ -282,15 +439,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...newSrv,
       id: `srv-${Date.now()}`,
     };
-    setServices((prev) => [...prev, srv]);
+    const updated = [...services, srv];
+    updateAndSync(updated, bills, applications, khata, settings);
   };
 
   const updateService = (id: string, updatedFields: Partial<ServiceItem>) => {
-    setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...updatedFields } : s)));
+    const updated = services.map((s) => (s.id === id ? { ...s, ...updatedFields } : s));
+    updateAndSync(updated, bills, applications, khata, settings);
   };
 
   const deleteService = (id: string) => {
-    setServices((prev) => prev.filter((s) => s.id !== id));
+    const updated = services.filter((s) => s.id !== id);
+    updateAndSync(updated, bills, applications, khata, settings);
   };
 
   // Application Tracker
@@ -299,30 +459,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...appData,
       id: `app-${Date.now()}`,
     };
-    setApplications((prev) => [newApp, ...prev]);
+    const updated = [newApp, ...applications];
+    updateAndSync(services, bills, updated, khata, settings);
   };
 
   const updateApplication = (id: string, updatedFields: Partial<ApplicationRecord>) => {
-    setApplications((prev) => prev.map((app) => (app.id === id ? { ...app, ...updatedFields } : app)));
+    const updated = applications.map((app) => (app.id === id ? { ...app, ...updatedFields } : app));
+    updateAndSync(services, bills, updated, khata, settings);
   };
 
   const updateAppStatus = (id: string, status: ApplicationRecord['status'], remarks?: string) => {
-    setApplications((prev) =>
-      prev.map((app) =>
-        app.id === id
-          ? {
-              ...app,
-              status,
-              remarks: remarks !== undefined ? remarks : app.remarks,
-              statusUpdateDate: new Date().toISOString(),
-            }
-          : app
-      )
+    const updated = applications.map((app) =>
+      app.id === id
+        ? {
+            ...app,
+            status,
+            remarks: remarks !== undefined ? remarks : app.remarks,
+            statusUpdateDate: new Date().toISOString(),
+          }
+        : app
     );
+    updateAndSync(services, bills, updated, khata, settings);
   };
 
   const deleteApplication = (id: string) => {
-    setApplications((prev) => prev.filter((app) => app.id !== id));
+    const updated = applications.filter((app) => app.id !== id);
+    updateAndSync(services, bills, updated, khata, settings);
   };
 
   // Khata operations
@@ -334,83 +496,77 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalOutstanding: 0,
       history: [],
     };
-    setKhata((prev) => [...prev, newCust]);
+    const updated = [...khata, newCust];
+    updateAndSync(services, bills, applications, updated, settings);
   };
 
   const updateKhataCustomer = (id: string, name: string, phone: string) => {
-    setKhata((prev) =>
-      prev.map((cust) =>
-        cust.id === id
-          ? { ...cust, name: name.trim(), phone: phone.trim() }
-          : cust
-      )
+    const updated = khata.map((cust) =>
+      cust.id === id ? { ...cust, name: name.trim(), phone: phone.trim() } : cust
     );
+    updateAndSync(services, bills, applications, updated, settings);
   };
 
   const deleteKhataCustomer = (id: string) => {
-    setKhata((prev) => prev.filter((cust) => cust.id !== id));
+    const updated = khata.filter((cust) => cust.id !== id);
+    updateAndSync(services, bills, applications, updated, settings);
   };
 
   const recordKhataPayment = (customerId: string, amount: number, note: string) => {
-    setKhata((prev) =>
-      prev.map((cust) => {
-        if (cust.id === customerId) {
-          const updatedOutstanding = Math.max(0, cust.totalOutstanding - amount);
-          return {
-            ...cust,
-            totalOutstanding: updatedOutstanding,
-            history: [
-              ...cust.history,
-              {
-                id: `h-${Date.now()}`,
-                date: new Date().toISOString(),
-                type: 'credit',
-                amount,
-                description: note.trim() || 'Payment Received (Cash/UPI)',
-              },
-            ],
-          };
-        }
-        return cust;
-      })
-    );
+    const updated = khata.map((cust) => {
+      if (cust.id === customerId) {
+        const updatedOutstanding = Math.max(0, cust.totalOutstanding - amount);
+        return {
+          ...cust,
+          totalOutstanding: updatedOutstanding,
+          history: [
+            ...cust.history,
+            {
+              id: `h-${Date.now()}`,
+              date: new Date().toISOString(),
+              type: 'credit' as const,
+              amount,
+              description: note.trim() || 'Payment Received (Cash/UPI)',
+            },
+          ],
+        };
+      }
+      return cust;
+    });
+    updateAndSync(services, bills, applications, updated, settings);
   };
 
   const addKhataDebit = (customerId: string, amount: number, description: string) => {
-    setKhata((prev) =>
-      prev.map((cust) => {
-        if (cust.id === customerId) {
-          return {
-            ...cust,
-            totalOutstanding: cust.totalOutstanding + amount,
-            history: [
-              ...cust.history,
-              {
-                id: `h-${Date.now()}`,
-                date: new Date().toISOString(),
-                type: 'debit',
-                amount,
-                description: description.trim() || 'Manual Credit Charge',
-              },
-            ],
-          };
-        }
-        return cust;
-      })
-    );
+    const updated = khata.map((cust) => {
+      if (cust.id === customerId) {
+        return {
+          ...cust,
+          totalOutstanding: cust.totalOutstanding + amount,
+          history: [
+            ...cust.history,
+            {
+              id: `h-${Date.now()}`,
+              date: new Date().toISOString(),
+              type: 'debit' as const,
+              amount,
+              description: description.trim() || 'Manual Credit Charge',
+            },
+          ],
+        };
+      }
+      return cust;
+    });
+    updateAndSync(services, bills, applications, updated, settings);
   };
 
   const updateSettings = (newSet: Partial<StoreSettings>) => {
-    setSettings((prev) => ({ ...prev, ...newSet }));
+    const updated = { ...settings, ...newSet };
+    updateAndSync(services, bills, applications, khata, updated);
   };
 
   const resetAllData = () => {
-    if (window.confirm('Are you sure you want to reset all data to initial defaults?')) {
-      setServices(initialServices);
-      setBills(initialBills);
-      setApplications(initialApplications);
-      setKhata(initialKhata);
-      setSettings(initialSettings);
+    if (window.confirm('Are you sure you want to reset all data across all connected devices?')) {
+      updateAndSync(initialServices, initialBills, initialApplications, initialKhata, initialSettings);
       clearCart();
     }
   };
@@ -426,6 +582,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cart,
         activeTab,
         setActiveTab,
+        syncStatus,
         addToCart,
         removeFromCart,
         updateCartQuantity,
@@ -455,6 +612,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addKhataDebit,
         updateSettings,
         resetAllData,
+        syncNow: pullFromCloud,
       }}
     >
       {children}
